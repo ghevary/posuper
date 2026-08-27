@@ -288,7 +288,7 @@ export default function AdminDashboard() {
           {/* Interactive Charts Section */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Trend Chart: Penjualan vs Modal vs Laba */}
-            <div className="lg:col-span-2 glass-card p-5">
+            <div className="lg:col-span-2 glass-card p-5 min-w-0">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
                 <div>
                   <h3 className="font-semibold text-base flex items-center gap-2">
@@ -301,51 +301,53 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={stats?.trendChart || []}>
-                  <defs>
-                    <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="colorProf" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis dataKey="label" stroke="#64748b" fontSize={11} />
-                  <YAxis stroke="#64748b" fontSize={11} tickFormatter={(v) => `${(v / 1000)}k`} />
-                  <Tooltip
-                    contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', fontSize: '12px' }}
-                    labelStyle={{ color: '#94a3b8' }}
-                    formatter={(value: number, name: string) => [
-                      formatCurrency(value),
-                      name === 'revenue' ? 'Penjualan' : name === 'profit' ? 'Laba Bersih' : name === 'cost' ? 'Modal (HPP)' : 'Pengeluaran',
-                    ]}
-                  />
-                  <Legend
-                    verticalAlign="top"
-                    height={36}
-                    formatter={(val) => (
-                      <span className="text-xs text-[var(--color-text)]">
-                        {val === 'revenue' ? 'Penjualan' : val === 'profit' ? 'Laba Bersih' : val === 'cost' ? 'Modal' : val}
-                      </span>
-                    )}
-                  />
-                  <Area type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} fill="url(#colorRev)" />
-                  <Area type="monotone" dataKey="profit" stroke="#10b981" strokeWidth={2} fill="url(#colorProf)" />
-                  <Area type="monotone" dataKey="cost" stroke="#f59e0b" strokeWidth={1.5} fill="url(#colorCost)" />
-                </AreaChart>
-              </ResponsiveContainer>
+              <div className="w-full h-[300px] min-h-[300px] min-w-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
+                  <AreaChart data={stats?.trendChart || []}>
+                    <defs>
+                      <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="colorProf" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                    <XAxis dataKey="label" stroke="#64748b" fontSize={11} />
+                    <YAxis stroke="#64748b" fontSize={11} tickFormatter={(v) => `${(v / 1000)}k`} />
+                    <Tooltip
+                      contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', fontSize: '12px' }}
+                      labelStyle={{ color: '#94a3b8' }}
+                      formatter={(value: number, name: string) => [
+                        formatCurrency(value),
+                        name === 'revenue' ? 'Penjualan' : name === 'profit' ? 'Laba Bersih' : name === 'cost' ? 'Modal (HPP)' : 'Pengeluaran',
+                      ]}
+                    />
+                    <Legend
+                      verticalAlign="top"
+                      height={36}
+                      formatter={(val) => (
+                        <span className="text-xs text-[var(--color-text)]">
+                          {val === 'revenue' ? 'Penjualan' : val === 'profit' ? 'Laba Bersih' : val === 'cost' ? 'Modal' : val}
+                        </span>
+                      )}
+                    />
+                    <Area type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} fill="url(#colorRev)" />
+                    <Area type="monotone" dataKey="profit" stroke="#10b981" strokeWidth={2} fill="url(#colorProf)" />
+                    <Area type="monotone" dataKey="cost" stroke="#f59e0b" strokeWidth={1.5} fill="url(#colorCost)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             </div>
 
             {/* Order Volume Chart */}
-            <div className="glass-card p-5">
+            <div className="glass-card p-5 min-w-0">
               <div className="mb-4">
                 <h3 className="font-semibold text-base flex items-center gap-2">
                   <ShoppingCart size={18} className="text-purple-400" />
@@ -354,19 +356,21 @@ export default function AdminDashboard() {
                 <p className="text-xs text-[var(--color-text-muted)]">Jumlah transaksi berhasil</p>
               </div>
 
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={stats?.trendChart || []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis dataKey="label" stroke="#64748b" fontSize={11} />
-                  <YAxis stroke="#64748b" fontSize={11} />
-                  <Tooltip
-                    contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', fontSize: '12px' }}
-                    labelStyle={{ color: '#94a3b8' }}
-                    formatter={(v: number) => [`${v} Transaksi`, 'Pesanan']}
-                  />
-                  <Bar dataKey="orders" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="w-full h-[300px] min-h-[300px] min-w-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
+                  <BarChart data={stats?.trendChart || []}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                    <XAxis dataKey="label" stroke="#64748b" fontSize={11} />
+                    <YAxis stroke="#64748b" fontSize={11} />
+                    <Tooltip
+                      contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', fontSize: '12px' }}
+                      labelStyle={{ color: '#94a3b8' }}
+                      formatter={(v: number) => [`${v} Transaksi`, 'Pesanan']}
+                    />
+                    <Bar dataKey="orders" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
 
@@ -499,23 +503,25 @@ export default function AdminDashboard() {
               </div>
 
               {/* Peak Hours Distribution */}
-              <div className="glass-card p-5">
+              <div className="glass-card p-5 min-w-0">
                 <div className="flex items-center gap-2 mb-3">
                   <Clock size={16} className="text-amber-400" />
                   <h3 className="font-semibold text-sm">Jam Ramai Pesanan</h3>
                 </div>
-                <ResponsiveContainer width="100%" height={160}>
-                  <BarChart data={stats?.peakHours || []}>
-                    <XAxis dataKey="hour" stroke="#64748b" fontSize={10} tickFormatter={(h) => `${h}:00`} />
-                    <YAxis stroke="#64748b" fontSize={10} />
-                    <Tooltip
-                      contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', fontSize: '11px' }}
-                      labelFormatter={(h) => `Jam ${h}:00 - ${h}:59`}
-                      formatter={(count: number) => [`${count} Transaksi`, 'Pesanan']}
-                    />
-                    <Bar dataKey="count" fill="#22c55e" radius={[3, 3, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="w-full h-[160px] min-h-[160px] min-w-0">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={160}>
+                    <BarChart data={stats?.peakHours || []}>
+                      <XAxis dataKey="hour" stroke="#64748b" fontSize={10} tickFormatter={(h) => `${h}:00`} />
+                      <YAxis stroke="#64748b" fontSize={10} />
+                      <Tooltip
+                        contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', fontSize: '11px' }}
+                        labelFormatter={(h) => `Jam ${h}:00 - ${h}:59`}
+                        formatter={(count: number) => [`${count} Transaksi`, 'Pesanan']}
+                      />
+                      <Bar dataKey="count" fill="#22c55e" radius={[3, 3, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
           </div>
