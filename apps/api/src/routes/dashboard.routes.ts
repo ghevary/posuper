@@ -28,130 +28,145 @@ export async function dashboardRoutes(app: FastifyInstance) {
     const period = query.period || 'today';
     const now = new Date();
 
-    // ─── 1. Determine Date Ranges (Current & Previous for Comparison) ───
+    // ─── Indonesian Timezone (WIB: UTC+7) Helper ───
+    const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+    function toWIB(d: Date | string | number) {
+      const dateObj = typeof d === 'string' || typeof d === 'number' ? new Date(d) : d;
+      const wib = new Date(dateObj.getTime() + WIB_OFFSET_MS);
+      const year = wib.getUTCFullYear();
+      const month = wib.getUTCMonth();
+      const date = wib.getUTCDate();
+      const day = wib.getUTCDay();
+      const hour = wib.getUTCHours();
+      const minute = wib.getUTCMinutes();
+      const isoDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+      const hourStr = `${String(hour).padStart(2, '0')}:00`;
+      return { year, month, date, day, hour, minute, isoDate, hourStr };
+    }
+
+    function makeWIBDate(year: number, month: number, date: number, hour = 0, minute = 0, second = 0, ms = 0): Date {
+      return new Date(Date.UTC(year, month, date, hour, minute, second, ms) - WIB_OFFSET_MS);
+    }
+
+    const nowWIB = toWIB(now);
+
+    // ─── 1. Determine Date Ranges in WIB ───
     let currentStart: Date;
     let currentEnd: Date;
     let prevStart: Date;
     let prevEnd: Date;
     let isSingleDay = false;
 
-    // Helper: start and end of day
-    const getStartOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
-    const getEndOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
-
-    const todayStart = getStartOfDay(now);
-    const todayEnd = getEndOfDay(now);
-
     switch (period) {
       case 'yesterday': {
-        const y = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        currentStart = getStartOfDay(y);
-        currentEnd = getEndOfDay(y);
+        const yWIB = toWIB(now.getTime() - 24 * 60 * 60 * 1000);
+        currentStart = makeWIBDate(yWIB.year, yWIB.month, yWIB.date, 0, 0, 0, 0);
+        currentEnd = makeWIBDate(yWIB.year, yWIB.month, yWIB.date, 23, 59, 59, 999);
 
-        const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
-        prevStart = getStartOfDay(twoDaysAgo);
-        prevEnd = getEndOfDay(twoDaysAgo);
+        const twoDaysAgoWIB = toWIB(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+        prevStart = makeWIBDate(twoDaysAgoWIB.year, twoDaysAgoWIB.month, twoDaysAgoWIB.date, 0, 0, 0, 0);
+        prevEnd = makeWIBDate(twoDaysAgoWIB.year, twoDaysAgoWIB.month, twoDaysAgoWIB.date, 23, 59, 59, 999);
         isSingleDay = true;
         break;
       }
       case '7days': {
-        const sevenDaysAgo = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
-        currentStart = getStartOfDay(sevenDaysAgo);
-        currentEnd = todayEnd;
+        const sevenDaysAgoWIB = toWIB(now.getTime() - 6 * 24 * 60 * 60 * 1000);
+        currentStart = makeWIBDate(sevenDaysAgoWIB.year, sevenDaysAgoWIB.month, sevenDaysAgoWIB.date, 0, 0, 0, 0);
+        currentEnd = makeWIBDate(nowWIB.year, nowWIB.month, nowWIB.date, 23, 59, 59, 999);
 
-        const fourteenDaysAgo = new Date(now.getTime() - 13 * 24 * 60 * 60 * 1000);
-        const eightDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        prevStart = getStartOfDay(fourteenDaysAgo);
-        prevEnd = getEndOfDay(eightDaysAgo);
+        const fourteenDaysAgoWIB = toWIB(now.getTime() - 13 * 24 * 60 * 60 * 1000);
+        const eightDaysAgoWIB = toWIB(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        prevStart = makeWIBDate(fourteenDaysAgoWIB.year, fourteenDaysAgoWIB.month, fourteenDaysAgoWIB.date, 0, 0, 0, 0);
+        prevEnd = makeWIBDate(eightDaysAgoWIB.year, eightDaysAgoWIB.month, eightDaysAgoWIB.date, 23, 59, 59, 999);
         break;
       }
       case 'this_week': {
-        const dayOfWeek = now.getDay(); // 0 = Sun, 1 = Mon...
-        const diffToMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        const monday = new Date(now.getTime() - diffToMon * 24 * 60 * 60 * 1000);
-        currentStart = getStartOfDay(monday);
-        currentEnd = todayEnd;
+        const diffToMon = nowWIB.day === 0 ? 6 : nowWIB.day - 1;
+        const monWIB = toWIB(now.getTime() - diffToMon * 24 * 60 * 60 * 1000);
+        currentStart = makeWIBDate(monWIB.year, monWIB.month, monWIB.date, 0, 0, 0, 0);
+        currentEnd = makeWIBDate(nowWIB.year, nowWIB.month, nowWIB.date, 23, 59, 59, 999);
 
-        const prevMonday = new Date(monday.getTime() - 7 * 24 * 60 * 60 * 1000);
-        const prevSunday = new Date(prevMonday.getTime() + diffToMon * 24 * 60 * 60 * 1000);
-        prevStart = getStartOfDay(prevMonday);
-        prevEnd = getEndOfDay(prevSunday);
+        const prevMonWIB = toWIB(now.getTime() - (diffToMon + 7) * 24 * 60 * 60 * 1000);
+        const prevSunWIB = toWIB(now.getTime() - (diffToMon + 1) * 24 * 60 * 60 * 1000);
+        prevStart = makeWIBDate(prevMonWIB.year, prevMonWIB.month, prevMonWIB.date, 0, 0, 0, 0);
+        prevEnd = makeWIBDate(prevSunWIB.year, prevSunWIB.month, prevSunWIB.date, 23, 59, 59, 999);
         break;
       }
       case 'last_week': {
-        const dayOfWeek = now.getDay();
-        const diffToMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        const lastMon = new Date(now.getTime() - (diffToMon + 7) * 24 * 60 * 60 * 1000);
-        const lastSun = new Date(lastMon.getTime() + 6 * 24 * 60 * 60 * 1000);
-        currentStart = getStartOfDay(lastMon);
-        currentEnd = getEndOfDay(lastSun);
+        const diffToMon = nowWIB.day === 0 ? 6 : nowWIB.day - 1;
+        const lastMonWIB = toWIB(now.getTime() - (diffToMon + 7) * 24 * 60 * 60 * 1000);
+        const lastSunWIB = toWIB(now.getTime() - (diffToMon + 1) * 24 * 60 * 60 * 1000);
+        currentStart = makeWIBDate(lastMonWIB.year, lastMonWIB.month, lastMonWIB.date, 0, 0, 0, 0);
+        currentEnd = makeWIBDate(lastSunWIB.year, lastSunWIB.month, lastSunWIB.date, 23, 59, 59, 999);
 
-        const twoWeeksMon = new Date(lastMon.getTime() - 7 * 24 * 60 * 60 * 1000);
-        const twoWeeksSun = new Date(twoWeeksMon.getTime() + 6 * 24 * 60 * 60 * 1000);
-        prevStart = getStartOfDay(twoWeeksMon);
-        prevEnd = getEndOfDay(twoWeeksSun);
+        const twoWeeksMonWIB = toWIB(now.getTime() - (diffToMon + 14) * 24 * 60 * 60 * 1000);
+        const twoWeeksSunWIB = toWIB(now.getTime() - (diffToMon + 8) * 24 * 60 * 60 * 1000);
+        prevStart = makeWIBDate(twoWeeksMonWIB.year, twoWeeksMonWIB.month, twoWeeksMonWIB.date, 0, 0, 0, 0);
+        prevEnd = makeWIBDate(twoWeeksSunWIB.year, twoWeeksSunWIB.month, twoWeeksSunWIB.date, 23, 59, 59, 999);
         break;
       }
       case '30days': {
-        const thirtyDaysAgo = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000);
-        currentStart = getStartOfDay(thirtyDaysAgo);
-        currentEnd = todayEnd;
+        const thirtyDaysAgoWIB = toWIB(now.getTime() - 29 * 24 * 60 * 60 * 1000);
+        currentStart = makeWIBDate(thirtyDaysAgoWIB.year, thirtyDaysAgoWIB.month, thirtyDaysAgoWIB.date, 0, 0, 0, 0);
+        currentEnd = makeWIBDate(nowWIB.year, nowWIB.month, nowWIB.date, 23, 59, 59, 999);
 
-        const sixtyDaysAgo = new Date(now.getTime() - 59 * 24 * 60 * 60 * 1000);
-        const thirtyOneDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        prevStart = getStartOfDay(sixtyDaysAgo);
-        prevEnd = getEndOfDay(thirtyOneDaysAgo);
+        const sixtyDaysAgoWIB = toWIB(now.getTime() - 59 * 24 * 60 * 60 * 1000);
+        const thirtyOneDaysAgoWIB = toWIB(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        prevStart = makeWIBDate(sixtyDaysAgoWIB.year, sixtyDaysAgoWIB.month, sixtyDaysAgoWIB.date, 0, 0, 0, 0);
+        prevEnd = makeWIBDate(thirtyOneDaysAgoWIB.year, thirtyOneDaysAgoWIB.month, thirtyOneDaysAgoWIB.date, 23, 59, 59, 999);
         break;
       }
       case 'this_month': {
-        currentStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-        currentEnd = todayEnd;
+        currentStart = makeWIBDate(nowWIB.year, nowWIB.month, 1, 0, 0, 0, 0);
+        currentEnd = makeWIBDate(nowWIB.year, nowWIB.month, nowWIB.date, 23, 59, 59, 999);
 
-        const daysInCurrentPeriod = Math.floor((currentEnd.getTime() - currentStart.getTime()) / (24 * 60 * 60 * 1000));
-        prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
-        prevEnd = new Date(prevStart.getTime() + daysInCurrentPeriod * 24 * 60 * 60 * 1000 + (23 * 3600 + 59 * 60 + 59) * 1000);
+        const daysInCurrentPeriod = nowWIB.date;
+        prevStart = makeWIBDate(nowWIB.year, nowWIB.month - 1, 1, 0, 0, 0, 0);
+        prevEnd = makeWIBDate(nowWIB.year, nowWIB.month - 1, daysInCurrentPeriod, 23, 59, 59, 999);
         break;
       }
       case 'last_month': {
-        currentStart = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
-        currentEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+        currentStart = makeWIBDate(nowWIB.year, nowWIB.month - 1, 1, 0, 0, 0, 0);
+        const lastDayOfPrevMonth = new Date(Date.UTC(nowWIB.year, nowWIB.month, 0)).getUTCDate();
+        currentEnd = makeWIBDate(nowWIB.year, nowWIB.month - 1, lastDayOfPrevMonth, 23, 59, 59, 999);
 
-        prevStart = new Date(now.getFullYear(), now.getMonth() - 2, 1, 0, 0, 0, 0);
-        prevEnd = new Date(now.getFullYear(), now.getMonth() - 1, 0, 23, 59, 59, 999);
+        const lastDayOfTwoMonthsAgo = new Date(Date.UTC(nowWIB.year, nowWIB.month - 1, 0)).getUTCDate();
+        prevStart = makeWIBDate(nowWIB.year, nowWIB.month - 2, 1, 0, 0, 0, 0);
+        prevEnd = makeWIBDate(nowWIB.year, nowWIB.month - 2, lastDayOfTwoMonthsAgo, 23, 59, 59, 999);
         break;
       }
       case 'custom': {
         if (query.from && query.to) {
           const [fYear, fMonth, fDay] = query.from.split('-').map(Number);
           const [tYear, tMonth, tDay] = query.to.split('-').map(Number);
-          currentStart = new Date(fYear, fMonth - 1, fDay, 0, 0, 0, 0);
-          currentEnd = new Date(tYear, tMonth - 1, tDay, 23, 59, 59, 999);
+          currentStart = makeWIBDate(fYear, fMonth - 1, fDay, 0, 0, 0, 0);
+          currentEnd = makeWIBDate(tYear, tMonth - 1, tDay, 23, 59, 59, 999);
+          if (query.from === query.to) isSingleDay = true;
         } else if (query.from) {
           const [fYear, fMonth, fDay] = query.from.split('-').map(Number);
-          currentStart = new Date(fYear, fMonth - 1, fDay, 0, 0, 0, 0);
-          currentEnd = todayEnd;
+          currentStart = makeWIBDate(fYear, fMonth - 1, fDay, 0, 0, 0, 0);
+          currentEnd = makeWIBDate(nowWIB.year, nowWIB.month, nowWIB.date, 23, 59, 59, 999);
+          isSingleDay = true;
         } else {
-          currentStart = todayStart;
-          currentEnd = todayEnd;
+          currentStart = makeWIBDate(nowWIB.year, nowWIB.month, nowWIB.date, 0, 0, 0, 0);
+          currentEnd = makeWIBDate(nowWIB.year, nowWIB.month, nowWIB.date, 23, 59, 59, 999);
+          isSingleDay = true;
         }
 
         const durationMs = currentEnd.getTime() - currentStart.getTime();
         prevStart = new Date(currentStart.getTime() - durationMs - 1);
         prevEnd = new Date(currentStart.getTime() - 1);
-
-        if (currentStart.toDateString() === currentEnd.toDateString()) {
-          isSingleDay = true;
-        }
         break;
       }
       case 'today':
       default: {
-        currentStart = todayStart;
-        currentEnd = todayEnd;
+        currentStart = makeWIBDate(nowWIB.year, nowWIB.month, nowWIB.date, 0, 0, 0, 0);
+        currentEnd = makeWIBDate(nowWIB.year, nowWIB.month, nowWIB.date, 23, 59, 59, 999);
 
-        const y = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        prevStart = getStartOfDay(y);
-        prevEnd = getEndOfDay(y);
+        const yWIB = toWIB(now.getTime() - 24 * 60 * 60 * 1000);
+        prevStart = makeWIBDate(yWIB.year, yWIB.month, yWIB.date, 0, 0, 0, 0);
+        prevEnd = makeWIBDate(yWIB.year, yWIB.month, yWIB.date, 23, 59, 59, 999);
         isSingleDay = true;
         break;
       }
@@ -488,12 +503,15 @@ export async function dashboardRoutes(app: FastifyInstance) {
         trendMap[hourStr] = { label: hourStr, revenue: 0, cost: 0, expenses: 0, profit: 0, orders: 0 };
       }
     } else {
-      // Prepopulate all days in range
-      const cur = new Date(currentStart);
-      while (cur <= currentEnd) {
-        const dateStr = cur.toISOString().split('T')[0];
-        trendMap[dateStr] = { label: dateStr, revenue: 0, cost: 0, expenses: 0, profit: 0, orders: 0 };
-        cur.setDate(cur.getDate() + 1);
+      // Prepopulate all days in WIB
+      let curMs = currentStart.getTime();
+      const endMs = currentEnd.getTime();
+      while (curMs <= endMs) {
+        const dateStr = toWIB(curMs).isoDate;
+        if (!trendMap[dateStr]) {
+          trendMap[dateStr] = { label: dateStr, revenue: 0, cost: 0, expenses: 0, profit: 0, orders: 0 };
+        }
+        curMs += 24 * 60 * 60 * 1000;
       }
     }
 
@@ -519,23 +537,20 @@ export async function dashboardRoutes(app: FastifyInstance) {
         orderTypeBreakdown[oType].total += rev;
       }
 
-      // Peak hours & Trend mapping
+      // Peak hours & Trend mapping (WIB UTC+7)
       if (tx.createdAt) {
-        const d = new Date(tx.createdAt);
-        const h = d.getHours();
-        peakHoursMap[h] = (peakHoursMap[h] || 0) + 1;
+        const wib = toWIB(tx.createdAt);
+        peakHoursMap[wib.hour] = (peakHoursMap[wib.hour] || 0) + 1;
 
         if (isSingleDay) {
-          const hourStr = `${String(h).padStart(2, '0')}:00`;
-          if (trendMap[hourStr]) {
-            trendMap[hourStr].revenue += rev;
-            trendMap[hourStr].orders += 1;
+          if (trendMap[wib.hourStr]) {
+            trendMap[wib.hourStr].revenue += rev;
+            trendMap[wib.hourStr].orders += 1;
           }
         } else {
-          const dateStr = d.toISOString().split('T')[0];
-          if (trendMap[dateStr]) {
-            trendMap[dateStr].revenue += rev;
-            trendMap[dateStr].orders += 1;
+          if (trendMap[wib.isoDate]) {
+            trendMap[wib.isoDate].revenue += rev;
+            trendMap[wib.isoDate].orders += 1;
           }
         }
       }
@@ -561,15 +576,13 @@ export async function dashboardRoutes(app: FastifyInstance) {
 
       totalCost += itemCost;
 
-      // Add cost to trend map
+      // Add cost to trend map (WIB UTC+7)
       if (it.createdAt) {
-        const d = new Date(it.createdAt);
+        const wib = toWIB(it.createdAt);
         if (isSingleDay) {
-          const hourStr = `${String(d.getHours()).padStart(2, '0')}:00`;
-          if (trendMap[hourStr]) trendMap[hourStr].cost += itemCost;
+          if (trendMap[wib.hourStr]) trendMap[wib.hourStr].cost += itemCost;
         } else {
-          const dateStr = d.toISOString().split('T')[0];
-          if (trendMap[dateStr]) trendMap[dateStr].cost += itemCost;
+          if (trendMap[wib.isoDate]) trendMap[wib.isoDate].cost += itemCost;
         }
       }
 
@@ -599,13 +612,11 @@ export async function dashboardRoutes(app: FastifyInstance) {
       totalExpenses += expAmt;
 
       if (exp.createdAt) {
-        const d = new Date(exp.createdAt);
+        const wib = toWIB(exp.createdAt);
         if (isSingleDay) {
-          const hourStr = `${String(d.getHours()).padStart(2, '0')}:00`;
-          if (trendMap[hourStr]) trendMap[hourStr].expenses += expAmt;
+          if (trendMap[wib.hourStr]) trendMap[wib.hourStr].expenses += expAmt;
         } else {
-          const dateStr = d.toISOString().split('T')[0];
-          if (trendMap[dateStr]) trendMap[dateStr].expenses += expAmt;
+          if (trendMap[wib.isoDate]) trendMap[wib.isoDate].expenses += expAmt;
         }
       }
     });
@@ -676,22 +687,23 @@ export async function dashboardRoutes(app: FastifyInstance) {
     };
 
     // ─── 7. Legacy Properties (For backward compatibility) ───
+    const wibTodayStart = makeWIBDate(nowWIB.year, nowWIB.month, nowWIB.date, 0, 0, 0, 0);
     const revToday = await db.select({
       total: sql<string>`COALESCE(SUM(CAST(total AS DECIMAL)), 0)`,
     }).from(transactions)
-      .where(and(gte(transactions.createdAt, todayStart), eq(transactions.status, 'completed')));
+      .where(and(gte(transactions.createdAt, wibTodayStart), eq(transactions.status, 'completed')));
 
-    const weekAgo = new Date(todayStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const weekAgo = new Date(wibTodayStart.getTime() - 7 * 24 * 60 * 60 * 1000);
     const revWeek = await db.select({
       total: sql<string>`COALESCE(SUM(CAST(total AS DECIMAL)), 0)`,
     }).from(transactions)
       .where(and(gte(transactions.createdAt, weekAgo), eq(transactions.status, 'completed')));
 
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const wibMonthStart = makeWIBDate(nowWIB.year, nowWIB.month, 1, 0, 0, 0, 0);
     const revMonth = await db.select({
       total: sql<string>`COALESCE(SUM(CAST(total AS DECIMAL)), 0)`,
     }).from(transactions)
-      .where(and(gte(transactions.createdAt, monthStart), eq(transactions.status, 'completed')));
+      .where(and(gte(transactions.createdAt, wibMonthStart), eq(transactions.status, 'completed')));
 
     return reply.send({
       success: true,

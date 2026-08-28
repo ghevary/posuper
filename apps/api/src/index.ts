@@ -3,6 +3,7 @@
 // ============================================================
 
 import 'dotenv/config';
+process.env.TZ = 'Asia/Jakarta';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { API_PORT, API_HOST } from '@pos-yoga/config';
