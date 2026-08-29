@@ -594,8 +594,23 @@ export async function exportRoutes(app: FastifyInstance) {
   app.get('/api/export/expenses', { preHandler: [requireRole('developer', 'admin')] }, async (req, reply) => {
     const { from, to } = req.query as { from?: string; to?: string };
 
-    const startDate = from ? new Date(`${from}T00:00:00`) : new Date(new Date().setHours(0, 0, 0, 0));
-    const endDate = to ? new Date(`${to}T23:59:59`) : new Date(new Date().setHours(23, 59, 59, 999));
+    const conditions: any[] = [];
+    if (from && to) {
+      const [fYear, fMonth, fDay] = from.split('-').map(Number);
+      const [tYear, tMonth, tDay] = to.split('-').map(Number);
+      const startDate = new Date(Date.UTC(fYear, fMonth - 1, fDay, 0, 0, 0, 0) - 7 * 3600 * 1000);
+      const endDate = new Date(Date.UTC(tYear, tMonth - 1, tDay, 23, 59, 59, 999) - 7 * 3600 * 1000);
+      conditions.push(gte(expenses.date, startDate));
+      conditions.push(lte(expenses.date, endDate));
+    } else if (from) {
+      const [fYear, fMonth, fDay] = from.split('-').map(Number);
+      const startDate = new Date(Date.UTC(fYear, fMonth - 1, fDay, 0, 0, 0, 0) - 7 * 3600 * 1000);
+      conditions.push(gte(expenses.date, startDate));
+    } else if (to) {
+      const [tYear, tMonth, tDay] = to.split('-').map(Number);
+      const endDate = new Date(Date.UTC(tYear, tMonth - 1, tDay, 23, 59, 59, 999) - 7 * 3600 * 1000);
+      conditions.push(lte(expenses.date, endDate));
+    }
 
     const expList = await db.select({
       id: expenses.id,
@@ -606,7 +621,7 @@ export async function exportRoutes(app: FastifyInstance) {
     })
       .from(expenses)
       .leftJoin(user, eq(expenses.userId, user.id))
-      .where(and(gte(expenses.date, startDate), lte(expenses.date, endDate)))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(expenses.date));
 
     const workbook = new ExcelJS.Workbook();
@@ -616,26 +631,37 @@ export async function exportRoutes(app: FastifyInstance) {
       { header: 'No', key: 'no', width: 6 },
       { header: 'Tanggal', key: 'date', width: 14 },
       { header: 'Jam', key: 'time', width: 10 },
-      { header: 'Deskripsi Pengeluaran', key: 'description', width: 35 },
-      { header: 'Jumlah (Rp)', key: 'amount', width: 18 },
-      { header: 'Dicatat Oleh', key: 'recordedBy', width: 20 },
+      { header: 'Deskripsi Pengeluaran', key: 'description', width: 38 },
+      { header: 'Jumlah (Rp)', key: 'amount', width: 20 },
+      { header: 'Dicatat Oleh', key: 'recordedBy', width: 22 },
     ];
 
     sheet.getRow(1).eachCell((cell) => styleHeaderCell(cell));
 
+    // Security: Helper to prevent Excel formula injection
+    const sanitizeText = (val: string | null | undefined) => {
+      if (!val) return '-';
+      const s = String(val).trim();
+      return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+    };
+
     let sumExpense = 0;
     expList.forEach((e, i) => {
-      const d = new Date(e.date);
+      const rawDate = e.date ? new Date(e.date) : new Date();
+      // WIB Time conversion (UTC+7)
+      const wibDate = new Date(rawDate.getTime() + 7 * 60 * 60 * 1000);
+      const dateStr = `${wibDate.getUTCDate().toString().padStart(2, '0')}/${(wibDate.getUTCMonth() + 1).toString().padStart(2, '0')}/${wibDate.getUTCFullYear()}`;
+      const timeStr = `${wibDate.getUTCHours().toString().padStart(2, '0')}:${wibDate.getUTCMinutes().toString().padStart(2, '0')}`;
       const amt = Number(e.amount) || 0;
       sumExpense += amt;
 
       const row = sheet.addRow({
         no: i + 1,
-        date: d.toLocaleDateString('id-ID'),
-        time: d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-        description: e.description,
+        date: dateStr,
+        time: timeStr,
+        description: sanitizeText(e.description),
         amount: amt,
-        recordedBy: e.recordedBy || '-',
+        recordedBy: sanitizeText(e.recordedBy || '-'),
       });
 
       row.eachCell((cell, colNumber) => {
@@ -661,7 +687,7 @@ export async function exportRoutes(app: FastifyInstance) {
     }
 
     const buffer = await workbook.xlsx.writeBuffer();
-    const dateTag = from && to ? `${from}_to_${to}` : new Date().toISOString().slice(0, 10);
+    const dateTag = from && to ? `${from}_to_${to}` : from ? `from_${from}` : new Date().toISOString().slice(0, 10);
     return reply
       .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
       .header('Content-Disposition', `attachment; filename="pengeluaran_${dateTag}.xlsx"`)
